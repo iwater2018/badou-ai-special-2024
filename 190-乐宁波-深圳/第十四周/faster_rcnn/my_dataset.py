@@ -10,8 +10,12 @@ from lxml import etree
 class VOCDataSet(Dataset):
     """读取解析PASCAL VOC2007/2012数据集"""
 
-    def __init__(self, voc_root, year="2012", transforms=None, txt_name: str = "train.txt"):
+    def __init__(self, voc_root, year="2012", transforms=None, txt_name: str = "train.txt", selected_classes=None):
         assert year in ["2007", "2012"], "year must be in ['2007', '2012']"
+        if selected_classes is None:
+            selected_classes = ['dog']
+        self.selected_classes = selected_classes
+
         # 增加容错能力
         if "VOCdevkit" in voc_root:
             self.root = os.path.join(voc_root, f"VOC{year}")
@@ -41,9 +45,18 @@ class VOCDataSet(Dataset):
             xml = etree.fromstring(xml_str)
             data = self.parse_xml_to_dict(xml)["annotation"]
             if "object" not in data:
-                print(f"INFO: no objects in {xml_path}, skip this annotation file.")
+                # print(f"INFO: no objects in {xml_path}, skip this annotation file.")
                 continue
 
+            # Filter objects by selected_classes
+            objects = data["object"]
+            filtered_objects = [obj for obj in objects if obj["name"] in self.selected_classes]
+            if not filtered_objects:
+                # print(f"INFO: no objects in {xml_path} match selected classes, skip this annotation file.")
+                continue
+
+            # Replace objects with filtered objects
+            data["object"] = filtered_objects
             self.xml_list.append(xml_path)
 
         assert len(self.xml_list) > 0, "in '{}' file does not find any information.".format(txt_path)
@@ -85,7 +98,7 @@ class VOCDataSet(Dataset):
             if xmax <= xmin or ymax <= ymin:
                 print("Warning: in '{}' xml, there are some bbox w/h <=0".format(xml_path))
                 continue
-            
+
             boxes.append([xmin, ymin, xmax, ymax])
             labels.append(self.class_dict[obj["name"]])
             if "difficult" in obj:
@@ -199,44 +212,104 @@ class VOCDataSet(Dataset):
     def collate_fn(batch):
         return tuple(zip(*batch))
 
-# import transforms
-# from draw_box_utils import draw_objs
-# from PIL import Image
-# import json
-# import matplotlib.pyplot as plt
-# import torchvision.transforms as ts
-# import random
-#
-# # read class_indict
-# category_index = {}
-# try:
-#     json_file = open('./pascal_voc_classes.json', 'r')
-#     class_dict = json.load(json_file)
-#     category_index = {str(v): str(k) for k, v in class_dict.items()}
-# except Exception as e:
-#     print(e)
-#     exit(-1)
-#
-# data_transform = {
-#     "train": transforms.Compose([transforms.ToTensor(),
-#                                  transforms.RandomHorizontalFlip(0.5)]),
-#     "val": transforms.Compose([transforms.ToTensor()])
-# }
-#
-# # load train data set
-# train_data_set = VOCDataSet(os.getcwd(), "2012", data_transform["train"], "train.txt")
-# print(len(train_data_set))
-# for index in random.sample(range(0, len(train_data_set)), k=5):
-#     img, target = train_data_set[index]
-#     img = ts.ToPILImage()(img)
-#     plot_img = draw_objs(img,
-#                          target["boxes"].numpy(),
-#                          target["labels"].numpy(),
-#                          np.ones(target["labels"].shape[0]),
-#                          category_index=category_index,
-#                          box_thresh=0.5,
-#                          line_thickness=3,
-#                          font='arial.ttf',
-#                          font_size=20)
-#     plt.imshow(plot_img)
-#     plt.show()
+
+class GuineaPigDataSet(Dataset):
+    def __init__(self, root_dir, transforms=None, dataset_type='train'):
+        root_dir = os.path.join(root_dir, "GuineaPigDataSet")
+        self.transforms = transforms
+
+        # Paths
+        self.img_folder = os.path.join(root_dir, dataset_type, "images")
+        self.label_folder = os.path.join(root_dir, dataset_type, "labels")
+
+        self.img_files = [f for f in os.listdir(self.img_folder) if f.endswith('.jpg')]
+
+    def __len__(self):
+        return len(self.img_files)
+
+    def __getitem__(self, idx):
+        img_name = os.path.join(self.img_folder, self.img_files[idx])
+
+        # Load image
+        image = Image.open(img_name).convert("RGB")
+
+        label_name = os.path.join(self.label_folder, self.img_files[idx].replace('.jpg', '.txt'))
+
+        # Load and parse annotations
+        boxes, labels = self.parse_yolo_labels(label_name, image.width, image.height)
+
+        # Convert to torch tensors
+        boxes = torch.as_tensor(boxes, dtype=torch.float32)
+        labels = torch.as_tensor(labels, dtype=torch.int64)
+
+        # Create target dictionary
+        target = {
+            "boxes": boxes,
+            "labels": labels,
+            "image_id": torch.tensor([idx]),
+            "area": (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]),
+            "iscrowd": torch.zeros(len(boxes), dtype=torch.int64)
+        }
+
+        if self.transforms:
+            image, target = self.transforms(image, target)
+
+        return image, target
+
+    def parse_yolo_labels(self, label_path, img_width, img_height):
+        boxes = []
+        labels = []
+        with open(label_path, 'r') as file:
+            for line in file:
+                parts = line.strip().split()
+                label = int(parts[0]) + 1
+                x_center, y_center, width, height = map(float, parts[1:])
+
+                # Convert YOLO format to absolute bounding box coordinates
+                x_center *= img_width
+                y_center *= img_height
+                width *= img_width
+                height *= img_height
+
+                xmin = x_center - width / 2
+                ymin = y_center - height / 2
+                xmax = x_center + width / 2
+                ymax = y_center + height / 2
+
+                boxes.append([xmin, ymin, xmax, ymax])
+                labels.append(label)
+
+        return boxes, labels
+
+    def get_height_and_width(self, idx):
+        img_name = os.path.join(self.img_folder, self.img_files[idx])
+        img = Image.open(img_name)
+        return img.size  # (width, height)
+
+    def coco_index(self, idx):
+        img_name = os.path.join(self.img_folder, self.img_files[idx])
+        img = Image.open(img_name)
+        data_height, data_width = img.size
+
+        label_name = os.path.join(self.label_folder, self.img_files[idx].replace('.jpg', '.txt'))
+        boxes, labels = self.parse_yolo_labels(label_name, data_width, data_height)
+
+        boxes = torch.as_tensor(boxes, dtype=torch.float32)
+        labels = torch.as_tensor(labels, dtype=torch.int64)
+        image_id = torch.tensor([idx])
+        area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
+        iscrowd = torch.zeros(len(boxes), dtype=torch.int64)
+
+        target = {
+            "boxes": boxes,
+            "labels": labels,
+            "image_id": image_id,
+            "area": area,
+            "iscrowd": iscrowd
+        }
+
+        return (data_height, data_width), target
+
+    @staticmethod
+    def collate_fn(batch):
+        return tuple(zip(*batch))

@@ -5,7 +5,7 @@ import torch
 
 import transforms
 from network_files import FasterRCNN, AnchorsGenerator
-from my_dataset import VOCDataSet
+from my_dataset import GuineaPigDataSet
 from train_utils import GroupedBatchSampler, create_aspect_ratio_groups
 from train_utils import train_eval_utils as utils
 from backbone import BackboneWithFPN, LastLevelMaxPool
@@ -85,7 +85,7 @@ def main(args):
 
     # load train data set
     # VOCdevkit -> VOC2012 -> ImageSets -> Main -> train.txt
-    train_dataset = VOCDataSet(VOC_root, "2012", data_transform["train"], "train.txt")
+    train_dataset = GuineaPigDataSet(VOC_root, data_transform["train"], "train")
     train_sampler = None
 
     # 是否按图片相似高宽比采样图片组成batch
@@ -118,7 +118,7 @@ def main(args):
 
     # load validation data set
     # VOCdevkit -> VOC2012 -> ImageSets -> Main -> val.txt
-    val_dataset = VOCDataSet(VOC_root, "2012", data_transform["val"], "val.txt")
+    val_dataset = GuineaPigDataSet(VOC_root, data_transform["val"], "valid")
     val_data_set_loader = torch.utils.data.DataLoader(val_dataset,
                                                       batch_size=1,
                                                       shuffle=False,

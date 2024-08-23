@@ -49,7 +49,7 @@ def main():
     print("using {} device.".format(device))
 
     # create model
-    model = create_model(num_classes=21)
+    model = create_model(num_classes=2)
 
     # load train weights
     weights_path = "./save_weights/model.pth"
