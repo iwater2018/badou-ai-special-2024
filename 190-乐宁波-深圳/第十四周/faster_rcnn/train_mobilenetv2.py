@@ -3,7 +3,7 @@ import datetime
 
 import torch
 import torchvision
-
+from torchvision import models
 import transforms
 from network_files import FasterRCNN, AnchorsGenerator
 from backbone import MobileNetV2, vgg
@@ -21,13 +21,19 @@ def create_model(num_classes):
 
     # https://download.pytorch.org/models/mobilenet_v2-b0353104.pth
     backbone = MobileNetV2(weights_path="./backbone/mobilenet_v2.pth").features
+
+    # ## 换成官方的mobilenet_v2
+    # backbone = models.mobilenet_v2(pretrained=True)
+    # from torchvision.models.feature_extraction import create_feature_extractor
+    # backbone = create_feature_extractor(backbone, return_nodes={"features.18": "0"})
+
     backbone.out_channels = 1280  # 设置对应backbone输出特征矩阵的channels
 
     anchor_generator = AnchorsGenerator(sizes=((32, 64, 128, 256, 512),),
                                         aspect_ratios=((0.5, 1.0, 2.0),))
 
     roi_pooler = torchvision.ops.MultiScaleRoIAlign(featmap_names=['0'],  # 在哪些特征层上进行roi pooling
-                                                    output_size=[7, 7],   # roi_pooling输出特征矩阵尺寸
+                                                    output_size=[7, 7],  # roi_pooling输出特征矩阵尺寸
                                                     sampling_ratio=2)  # 采样率
 
     model = FasterRCNN(backbone=backbone,
@@ -57,8 +63,8 @@ def main():
 
     VOC_root = "./"  # VOCdevkit
     aspect_ratio_group_factor = 3
-    batch_size = 8
-    amp = False  # 是否使用混合精度训练，需要GPU支持
+    batch_size = 4
+    amp = True  # 是否使用混合精度训练，需要GPU支持
 
     # check voc root
     if os.path.exists(os.path.join(VOC_root, "VOCdevkit")) is False:
@@ -131,7 +137,7 @@ def main():
     optimizer = torch.optim.SGD(params, lr=0.005,
                                 momentum=0.9, weight_decay=0.0005)
 
-    init_epochs = 5
+    init_epochs = 3
     for epoch in range(init_epochs):
         # train for one epoch, printing every 10 iterations
         mean_loss, lr = utils.train_one_epoch(model, optimizer, train_data_loader,
@@ -175,8 +181,8 @@ def main():
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
                                                    step_size=3,
                                                    gamma=0.33)
-    num_epochs = 20
-    for epoch in range(init_epochs, num_epochs+init_epochs, 1):
+    num_epochs = 3
+    for epoch in range(init_epochs, num_epochs + init_epochs, 1):
         # train for one epoch, printing every 50 iterations
         mean_loss, lr = utils.train_one_epoch(model, optimizer, train_data_loader,
                                               device, epoch, print_freq=50,
@@ -201,7 +207,7 @@ def main():
 
         # save weights
         # 仅保存最后5个epoch的权重
-        if epoch in range(num_epochs+init_epochs)[-5:]:
+        if epoch in range(num_epochs + init_epochs)[-5:]:
             save_files = {
                 'model': model.state_dict(),
                 'optimizer': optimizer.state_dict(),

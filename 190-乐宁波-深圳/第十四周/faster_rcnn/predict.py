@@ -15,25 +15,25 @@ from draw_box_utils import draw_objs
 
 def create_model(num_classes):
     # mobileNetv2+faster_RCNN
-    # backbone = MobileNetV2().features
-    # backbone.out_channels = 1280
-    #
-    # anchor_generator = AnchorsGenerator(sizes=((32, 64, 128, 256, 512),),
-    #                                     aspect_ratios=((0.5, 1.0, 2.0),))
-    #
-    # roi_pooler = torchvision.ops.MultiScaleRoIAlign(featmap_names=['0'],
-    #                                                 output_size=[7, 7],
-    #                                                 sampling_ratio=2)
-    #
-    # model = FasterRCNN(backbone=backbone,
-    #                    num_classes=num_classes,
-    #                    rpn_anchor_generator=anchor_generator,
-    #                    box_roi_pool=roi_pooler)
+    backbone = MobileNetV2().features
+    backbone.out_channels = 1280
+
+    anchor_generator = AnchorsGenerator(sizes=((32, 64, 128, 256, 512),),
+                                        aspect_ratios=((0.5, 1.0, 2.0),))
+
+    roi_pooler = torchvision.ops.MultiScaleRoIAlign(featmap_names=['0'],
+                                                    output_size=[7, 7],
+                                                    sampling_ratio=2)
+
+    model = FasterRCNN(backbone=backbone,
+                       num_classes=num_classes,
+                       rpn_anchor_generator=anchor_generator,
+                       box_roi_pool=roi_pooler)
 
     # resNet50+fpn+faster_RCNN
     # 注意，这里的norm_layer要和训练脚本中保持一致
-    backbone = resnet50_fpn_backbone(norm_layer=torch.nn.BatchNorm2d)
-    model = FasterRCNN(backbone=backbone, num_classes=num_classes, rpn_score_thresh=0.5)
+    # backbone = resnet50_fpn_backbone(norm_layer=torch.nn.BatchNorm2d)
+    # model = FasterRCNN(backbone=backbone, num_classes=num_classes, rpn_score_thresh=0.5)
 
     return model
 
@@ -68,7 +68,7 @@ def main():
     category_index = {str(v): str(k) for k, v in class_dict.items()}
 
     # load image
-    original_img = Image.open("./test.jpg")
+    original_img = Image.open("./test.jpeg")
 
     # from pil image to tensor, do not normalize image
     data_transform = transforms.Compose([transforms.ToTensor()])

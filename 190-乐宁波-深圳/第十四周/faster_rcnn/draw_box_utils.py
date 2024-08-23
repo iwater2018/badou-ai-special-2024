@@ -1,6 +1,6 @@
 from PIL.Image import Image, fromarray
 import PIL.ImageDraw as ImageDraw
-import PIL.ImageFont as ImageFont
+from PIL import ImageFont
 from PIL import ImageColor
 import numpy as np
 
@@ -52,7 +52,7 @@ def draw_text(draw,
     # box exceeds the top of the image, stack the strings below the bounding box
     # instead of above.
     display_str = f"{category_index[str(cls)]}: {int(100 * score)}%"
-    display_str_heights = [font.getsize(ds)[1] for ds in display_str]
+    display_str_heights = [font.getbbox(ds)[3] for ds in display_str]
     # Each display_str has a top and bottom margin of 0.05x.
     display_str_height = (1 + 2 * 0.05) * max(display_str_heights)
 
@@ -64,7 +64,7 @@ def draw_text(draw,
         text_bottom = bottom + display_str_height
 
     for ds in display_str:
-        text_width, text_height = font.getsize(ds)
+        text_width, text_height = font.getbbox(ds)[2:]
         margin = np.ceil(0.05 * text_width)
         draw.rectangle([(left, text_top),
                         (left + text_width + 2 * margin, text_bottom)], fill=color)
