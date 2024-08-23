@@ -28,7 +28,6 @@ def create_model(num_classes):
     # ## 换成官方的EfficientNet-B0
     backbone = models.mobilenet_v3_large(weights=MobileNet_V3_Large_Weights.DEFAULT)
     from torchvision.models.feature_extraction import create_feature_extractor
-    print(backbone)
     backbone = create_feature_extractor(backbone, return_nodes={"features.16": "0"})
     backbone.out_channels = 960  # 设置对应backbone输出特征矩阵的channels
 
@@ -66,8 +65,8 @@ def main():
 
     VOC_root = "./"  # VOCdevkit
     GuineaPig_root = "./"  # VOCdevkit
-    aspect_ratio_group_factor = 2
-    batch_size = 3
+    aspect_ratio_group_factor = 3
+    batch_size = 4
     amp = True  # 是否使用混合精度训练，需要GPU支持
 
     # check voc root
@@ -83,7 +82,7 @@ def main():
     # 是否按图片相似高宽比采样图片组成batch
     # 使用的话能够减小训练时所需GPU显存，默认使用
     if aspect_ratio_group_factor >= 0:
-        train_sampler = torch.utils.data.RandomSampler(train_dataset, num_samples=600)
+        train_sampler = torch.utils.data.RandomSampler(train_dataset)
         # 统计所有图像高宽比例在bins区间中的位置索引
         group_ids = create_aspect_ratio_groups(train_dataset, k=aspect_ratio_group_factor)
         # 每个batch图片从同一高宽比例区间中取
@@ -113,14 +112,15 @@ def main():
     # val_dataset = VOCDataSet(VOC_root, "2012", data_transform["val"], "val.txt", selected_classes=['car'])
     val_dataset = GuineaPigDataSet(GuineaPig_root, data_transform["val"], "valid")
 
-    subset_indices = list(range(100))
-    sampler = SubsetRandomSampler(subset_indices)
+    # subset_indices = list(range(100))
+    # sampler = SubsetRandomSampler(subset_indices)
     val_data_loader = torch.utils.data.DataLoader(val_dataset,
                                                   pin_memory=True,
                                                   batch_size=3,
                                                   num_workers=nw,
                                                   collate_fn=val_dataset.collate_fn,
-                                                  sampler=sampler)
+                                                #   sampler=sampler,
+                                                  )
 
     # create model num_classes equal background + 20 classes
     model = create_model(num_classes=2)
