@@ -9,7 +9,7 @@ from torchvision.models import ShuffleNet_V2_X0_5_Weights, ShuffleNet_V2_X2_0_We
 
 import transforms
 from network_files import FasterRCNN, AnchorsGenerator
-from backbone import MobileNetV2, vgg
+from backbone import MobileNetV2, vgg, MobileNetV3BC
 from my_dataset import VOCDataSet, GuineaPigDataSet
 from train_utils import GroupedBatchSampler, create_aspect_ratio_groups
 from train_utils import train_eval_utils as utils
@@ -25,10 +25,11 @@ def create_model(num_classes):
     # https://download.pytorch.org/models/mobilenet_v2-b0353104.pth
     # backbone = MobileNetV2(weights_path="./backbone/mobilenet_v2.pth").features
 
-    # ## 换成官方的EfficientNet-B0
+    # ## 换成官方模型
     backbone = models.mobilenet_v3_large(weights=MobileNet_V3_Large_Weights.DEFAULT)
     from torchvision.models.feature_extraction import create_feature_extractor
     backbone = create_feature_extractor(backbone, return_nodes={"features.16": "0"})
+
     backbone.out_channels = 960  # 设置对应backbone输出特征矩阵的channels
 
     anchor_generator = AnchorsGenerator(sizes=((32, 64, 128, 256, 512),),
@@ -66,7 +67,7 @@ def main():
     VOC_root = "./"  # VOCdevkit
     GuineaPig_root = "./"  # VOCdevkit
     aspect_ratio_group_factor = 3
-    batch_size = 4
+    batch_size = 3
     amp = True  # 是否使用混合精度训练，需要GPU支持
 
     # check voc root
@@ -75,8 +76,8 @@ def main():
 
     # load train data set
     # VOCdevkit -> VOC2012 -> ImageSets -> Main -> train.txt
-    # train_dataset = VOCDataSet(VOC_root, "2012", data_transform["train"], "train.txt", selected_classes=['car'])
-    train_dataset = GuineaPigDataSet(GuineaPig_root, data_transform["train"], "train")
+    train_dataset = VOCDataSet(VOC_root, "2012", data_transform["train"], "train.txt")
+    # train_dataset = GuineaPigDataSet(GuineaPig_root, data_transform["train"], "train")
     train_sampler = None
 
     # 是否按图片相似高宽比采样图片组成batch
@@ -109,8 +110,8 @@ def main():
 
     # load validation data set
     # VOCdevkit -> VOC2012 -> ImageSets -> Main -> val.txt
-    # val_dataset = VOCDataSet(VOC_root, "2012", data_transform["val"], "val.txt", selected_classes=['car'])
-    val_dataset = GuineaPigDataSet(GuineaPig_root, data_transform["val"], "valid")
+    val_dataset = VOCDataSet(VOC_root, "2012", data_transform["val"], "val.txt")
+    # val_dataset = GuineaPigDataSet(GuineaPig_root, data_transform["val"], "valid")
 
     # subset_indices = list(range(100))
     # sampler = SubsetRandomSampler(subset_indices)
@@ -119,12 +120,18 @@ def main():
                                                   batch_size=3,
                                                   num_workers=nw,
                                                   collate_fn=val_dataset.collate_fn,
-                                                #   sampler=sampler,
+                                                  #   sampler=sampler,
                                                   )
 
     # create model num_classes equal background + 20 classes
-    model = create_model(num_classes=2)
-    # print(model)
+    model = create_model(num_classes=21)
+    print(model)
+
+    # from thop import profile
+    # input_tensor = torch.randn(1, 1, 800, 1333)
+    #
+    # flops, params = profile(model, inputs=(input_tensor,))
+    # print(f"FLOPs: {flops / 1e9:.2f} GFLOPs, Params: {params / 1e6:.2f} M")
 
     model.to(device)
 
@@ -190,7 +197,7 @@ def main():
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
                                                    step_size=3,
                                                    gamma=0.5)
-    num_epochs = 15
+    num_epochs = 25
     for epoch in range(init_epochs, num_epochs + init_epochs, 1):
         # train for one epoch, printing every 50 iterations
         mean_loss, lr = utils.train_one_epoch(model, optimizer, train_data_loader,

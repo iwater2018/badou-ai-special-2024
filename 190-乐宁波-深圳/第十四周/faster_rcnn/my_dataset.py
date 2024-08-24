@@ -12,8 +12,6 @@ class VOCDataSet(Dataset):
 
     def __init__(self, voc_root, year="2012", transforms=None, txt_name: str = "train.txt", selected_classes=None):
         assert year in ["2007", "2012"], "year must be in ['2007', '2012']"
-        if selected_classes is None:
-            selected_classes = ['dog']
         self.selected_classes = selected_classes
 
         # 增加容错能力
@@ -50,7 +48,10 @@ class VOCDataSet(Dataset):
 
             # Filter objects by selected_classes
             objects = data["object"]
-            filtered_objects = [obj for obj in objects if obj["name"] in self.selected_classes]
+            if selected_classes:
+                filtered_objects = [obj for obj in objects if obj["name"] in self.selected_classes]
+            else:
+                filtered_objects = objects
             if not filtered_objects:
                 # print(f"INFO: no objects in {xml_path} match selected classes, skip this annotation file.")
                 continue
