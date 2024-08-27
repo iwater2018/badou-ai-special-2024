@@ -19,7 +19,7 @@ def train(is_cuda, num_workers, batch_size, root, img_size):
         print('use CPU to train')
         device = torch.device("cpu")
 
-    dataset, dataset_info = build_voc_dataset(root, img_size, dataset_cfg['voc'])
+    dataset, dataset_info = build_voc_dataset(root, img_size, dataset_cfg['voc'], is_train=True)
     num_classes = dataset_info['num_classes']
 
     dataloader = build_dataloader(num_workers, dataset, batch_size, collate_fn=CollateFunc())
@@ -43,8 +43,9 @@ def train(is_cuda, num_workers, batch_size, root, img_size):
                   device=device)
     del model_copy
 
+    eval_dataset, _ = build_voc_dataset(root, img_size, dataset_cfg['voc'], is_train=False)
     # 构建训练所需的Trainer类
-    trainer = Trainer(model, dataloader, criterion, device, num_epochs=100)
+    trainer = Trainer(model, dataloader, criterion, device, num_epochs=100, eval_dataset=eval_dataset)
 
     # 开始训练我们的模型
     trainer.train(model)
