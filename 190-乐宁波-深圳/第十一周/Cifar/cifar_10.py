@@ -37,11 +37,11 @@ model.compile(optimizer='adam',
               loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
               metrics=['accuracy'])
 
-history = model.fit(train_dataset, epochs=5, validation_data=test_dataset)
+history = model.fit(train_dataset, epochs=50, validation_data=test_dataset)
 
 # 评估
 test_loss, test_acc = model.evaluate(test_dataset, verbose=2)
 print(f'Test accuracy: {test_acc}')
 
-model.save('D:\\basic_cnn_model.h5')
+model.save('D:/basic_cnn_model.h5')
 model.summary()

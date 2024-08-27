@@ -4,8 +4,9 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
+from thop import profile
 from torch.utils.data import DataLoader
-from ResNet9 import ResNet9
+from ResNet9 import resnet9
 
 # 数据预处理
 transform_train = transforms.Compose([
@@ -27,7 +28,28 @@ train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=256, shuffle=False)
 
 pretrained_model_path = 'resnet9_cifar100.pth'
-model = ResNet9(3, 100)
+model = resnet9()
+
+
+def format_params(num):
+    for unit in [' ', 'K', 'M', 'B']:
+        if num >= 1024.0:
+            num /= 1024.0
+        else:
+            return f"{num:.2f}{unit}"
+
+
+# 遍历模型的每一层，并打印每一层的参数量
+for name, param in model.named_parameters():
+    if param.requires_grad:
+        total_params = param.numel()
+        formatted_params = format_params(total_params)
+        print(f"Layer: {name} | Size: {param.size()} | Total Parameters: {formatted_params}")
+
+total_params = sum(torch.numel(param) for param in model.parameters())
+print(f"Total number of parameters: {format_params(total_params)}")
+
+# raise 11
 if os.path.exists(pretrained_model_path):
     print("Loading pretrained model...")
     model.load_state_dict(torch.load(pretrained_model_path))
@@ -40,15 +62,14 @@ model.to(device)
 
 # 定义损失函数和优化器
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.004)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
 # 训练模型
-num_epochs = 5  # 增加训练周期
+num_epochs = 50  # 增加训练周期
 for epoch in range(num_epochs):
     model.train()  # 设置模型为训练模式
     for i, (images, labels) in enumerate(train_loader):
         images, labels = images.to(device), labels.to(device)
-
         optimizer.zero_grad()
 
         # 前向传播
