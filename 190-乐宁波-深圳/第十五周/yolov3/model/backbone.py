@@ -99,6 +99,16 @@ def resnet18(pretrained=False):
     return model
 
 
+def build_backbone(model_name='resnet18', pretrained=False):
+    if model_name == 'resnet18':
+        model = resnet18(pretrained)
+        feat_dim = 512  # 网络的最终输出的feature的通道维度为512
+    else:
+        raise 'Model name not found'
+
+    return model, feat_dim
+
+
 if __name__ == '__main__':
     model = resnet18()
     print(model)
