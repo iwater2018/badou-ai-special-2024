@@ -5,7 +5,7 @@ from model.yolov1 import YOLOv1
 from model.loss import build_criterion
 
 
-def build_yolov1(cfg, conf_thresh, nms_thresh, device, num_classes=80, trainable=False):
+def build_yolov1(cfg, conf_thresh, nms_thresh, device, num_classes=80, is_train=False):
     print('==============================')
     print('Model Configuration: \n', cfg)
 
@@ -16,7 +16,7 @@ def build_yolov1(cfg, conf_thresh, nms_thresh, device, num_classes=80, trainable
         num_classes=num_classes,
         conf_thresh=conf_thresh,
         nms_thresh=nms_thresh,
-        is_train=trainable
+        is_train=is_train
     )
 
     # -------------- 初始化YOLOv1的pred层参数 --------------
@@ -41,7 +41,7 @@ def build_yolov1(cfg, conf_thresh, nms_thresh, device, num_classes=80, trainable
 
     # -------------- 构建用于计算标签分配和计算损失的Criterion类 --------------
     criterion = None
-    if trainable:
+    if is_train:
         # build criterion for training
         criterion = build_criterion(cfg, device, num_classes)
 

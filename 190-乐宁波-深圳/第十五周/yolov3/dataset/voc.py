@@ -94,8 +94,6 @@ class VOCDetection(data.Dataset):
             image, target['boxes'].copy(), target['labels'].copy()
         )
 
-        print(image.shape)
-
         return torch.from_numpy(image).permute(2, 0, 1).contiguous().float(), {
             "boxes": torch.from_numpy(target['boxes']).float(),
             "labels": torch.from_numpy(target['labels']).float(),
